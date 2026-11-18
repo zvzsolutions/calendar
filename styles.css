@@ -2239,3 +2239,115 @@ button.detail-entry:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- notices ---- */
+.schedule-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 16px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.schedule-notice.is-warning {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ---- manage dialog ---- */
+.manage-dialog {
+  width: min(820px, 100%);
+}
+
+.manage-body {
+  display: grid;
+  gap: 22px;
+  padding: 20px;
+}
+
+.manage-section h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-family: Raleway, "Source Sans 3", sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.manage-help {
+  margin: 0 0 10px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.manage-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.manage-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+}
+
+.manage-person {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.2fr) auto;
+}
+
+.manage-person + .manage-person,
+.manage-status + .manage-status {
+  padding-top: 0;
+}
+
+.manage-add[data-person-add] {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+}
+
+.manage-status,
+.manage-add[data-status-add] {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+}
+
+.manage-appearance {
+  grid-template-columns: minmax(0, 1fr) 140px;
+  align-items: end;
+}
+
+.manage-backup {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.manage-dialog input[type="color"] {
+  min-height: 38px;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.manage-add {
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+@media (max-width: 640px) {
+  .manage-person,
+  .manage-add[data-person-add],
+  .manage-appearance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .manage-person {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+}

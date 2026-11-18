@@ -270,7 +270,6 @@
   }
 
   function touch() {
-    doc.sample = false;
     persist();
   }
 
@@ -319,7 +318,7 @@
 
     deleteStatus: op((id) => {
       const count = doc.entries.filter((entry) => entry.status === String(id)).length;
-      if (count > 0) fail(`Status is used by ${count} ${count === 1 ? 'entry' : 'entries'}. Change or delete those first.`);
+      if (count > 0) fail(`Category is used by ${count} ${count === 1 ? 'entry' : 'entries'}. Change or delete those first.`);
       doc.statuses = doc.statuses.filter((s) => s.id !== String(id));
       touch();
       return null;
@@ -375,7 +374,19 @@
     clearAll: op(() => {
       doc.people = [];
       doc.entries = [];
-      touch();
+      doc.sample = false;
+      persist();
+      return null;
+    }),
+
+    // Removes the built-in sample people (and anything scheduled for them)
+    // while keeping whatever the person has added themselves.
+    clearSampleData: op(() => {
+      const isSample = (id) => String(id).startsWith('sample-');
+      doc.people = doc.people.filter((person) => !isSample(person.id));
+      doc.entries = doc.entries.filter((entry) => !isSample(entry.id) && !isSample(entry.user_id));
+      doc.sample = false;
+      persist();
       return null;
     }),
 

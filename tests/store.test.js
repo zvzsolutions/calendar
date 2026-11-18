@@ -281,3 +281,23 @@ test('callers cannot mutate stored data through returned objects', async () => {
   assert.equal(again.length, 4);
   assert.notEqual(again[0].name, 'Tampered');
 });
+
+test('sample flag survives edits until sample data is cleared', async () => {
+  const { api, storage } = load();
+  await api.savePerson({ name: 'Real Person' });
+  assert.equal(await api.isSampleData(), true);
+  assert.equal(await load(storage).api.isSampleData(), true);
+});
+
+test('clearSampleData removes only the sample people and their entries', async () => {
+  const { api } = load();
+  const real = await api.savePerson({ name: 'Real Person' });
+  const [status] = await api.getStatuses();
+  await api.createEntry({ user_id: real.id, status: status.id, start_date: '2026-03-10', end_date: '2026-03-10', note: 'Mine' });
+
+  await api.clearSampleData();
+
+  assert.deepEqual(plain((await api.getUserDirectory()).map((p) => p.name)), ['Real Person']);
+  assert.deepEqual(plain((await api.getEntries(EVERYTHING)).map((e) => e.note)), ['Mine']);
+  assert.equal(await api.isSampleData(), false);
+});

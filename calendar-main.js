@@ -146,6 +146,32 @@
         showToast(err.message, 'error');
       }
     },
+    openManage() {
+      state.manageReturnFocus = document.activeElement;
+      state.manageOpen = true;
+      CalendarRender.render(app, state, actions);
+      const close = app.querySelector('[data-manage-close]');
+      if (close) close.focus({ preventScroll: true });
+    },
+    closeManage() {
+      state.manageOpen = false;
+      CalendarRender.render(app, state, actions);
+      const target = state.manageReturnFocus;
+      state.manageReturnFocus = null;
+      const fallback = app.querySelector('[data-cal-action="manage"]');
+      const next = target && document.contains(target) ? target : fallback;
+      if (next && next.focus) next.focus({ preventScroll: true });
+    },
+    async clearSampleData() {
+      if (window.confirm && !window.confirm('Remove the sample people and their entries? Anything you added yourself stays.')) return;
+      try {
+        await CalendarApi.clearSampleData();
+        await actions.reload();
+        showToast('Sample data cleared.', 'success');
+      } catch (err) {
+        showToast(err.message || 'Unable to clear sample data.', 'error');
+      }
+    },
     openDayDrawer(date, focusEntryId) {
       const iso = typeof date === 'string' ? date.slice(0, 10) : CalendarState.isoDate(date || state.selectedDate || state.viewDate || new Date());
       state.drawerDate = iso;
