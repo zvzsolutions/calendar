@@ -301,3 +301,31 @@ test('clearSampleData removes only the sample people and their entries', async (
   assert.deepEqual(plain((await api.getEntries(EVERYTHING)).map((e) => e.note)), ['Mine']);
   assert.equal(await api.isSampleData(), false);
 });
+
+test('clearSampleData keeps a sample person who was renamed, with the entries added for them', async () => {
+  const { api } = load();
+  const [status] = await api.getStatuses();
+  await api.savePerson({ id: 'sample-alex', name: 'Uncle Bob' });
+  await api.createEntry({ user_id: 'sample-alex', status: status.id, start_date: '2026-03-10', end_date: '2026-03-10', note: 'Real plan' });
+
+  await api.clearSampleData();
+
+  assert.deepEqual(plain((await api.getUserDirectory()).map((p) => p.name)), ['Uncle Bob']);
+  assert.deepEqual(plain((await api.getEntries(EVERYTHING)).map((e) => e.note)), ['Real plan']);
+});
+
+test('sampleDataSummary counts exactly what clearSampleData will remove', async () => {
+  const { api } = load();
+  const [status] = await api.getStatuses();
+  // An entry the person added for a sample person they did not rename goes too.
+  await api.createEntry({ user_id: 'sample-sam', status: status.id, start_date: '2026-03-10', end_date: '2026-03-10', note: 'Added for Sam' });
+  await api.savePerson({ id: 'sample-alex', name: 'Uncle Bob' });
+
+  const before = (await api.getEntries(EVERYTHING)).length;
+  const summary = plain(await api.sampleDataSummary());
+  assert.deepEqual(summary, { people: 3, entries: 9 });
+
+  await api.clearSampleData();
+  assert.equal((await api.getUserDirectory()).length, 1);
+  assert.equal((await api.getEntries(EVERYTHING)).length, before - summary.entries);
+});

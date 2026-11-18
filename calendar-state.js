@@ -89,7 +89,7 @@
       today,
       viewDate: new Date(today.getFullYear(), today.getMonth(), 1),
       viewMode: 'month',
-      selectedDate: null,
+      selectedDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
       me: null,
       entries: [],
       peopleDirectory: [],

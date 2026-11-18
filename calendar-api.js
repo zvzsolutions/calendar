@@ -24,6 +24,13 @@
     { id: 'other', label: 'Other', color: '#6b7280' },
   ];
 
+  const SAMPLE_NAMES = {
+    'sample-alex': 'Alex Sample',
+    'sample-jordan': 'Jordan Sample',
+    'sample-riley': 'Riley Sample',
+    'sample-sam': 'Sam Sample',
+  };
+
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const TIME_RE = /^\d{2}:\d{2}$/;
   const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -68,12 +75,9 @@
   function seedDocument() {
     const today = new Date();
     const day = (offset) => isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset));
-    const people = [
-      { id: 'sample-alex', name: 'Alex Sample', role: 'Sample person', email: '' },
-      { id: 'sample-jordan', name: 'Jordan Sample', role: 'Sample person', email: '' },
-      { id: 'sample-riley', name: 'Riley Sample', role: 'Sample person', email: '' },
-      { id: 'sample-sam', name: 'Sam Sample', role: 'Sample person', email: '' },
-    ];
+    const people = Object.keys(SAMPLE_NAMES).map((id) => (
+      { id, name: SAMPLE_NAMES[id], role: 'Sample person', email: '' }
+    ));
     const entry = (n, user, status, from, to, note, start, end) => ({
       id: `sample-entry-${n}`,
       user_id: user,
@@ -269,6 +273,20 @@
     };
   }
 
+  function sampleRemovalPlan() {
+    const people = new Set(
+      doc.people
+        .filter((person) => SAMPLE_NAMES[person.id] && person.name === SAMPLE_NAMES[person.id])
+        .map((person) => person.id)
+    );
+    const entries = new Set(
+      doc.entries
+        .filter((entry) => people.has(entry.user_id) || String(entry.id).startsWith('sample-entry-'))
+        .map((entry) => entry.id)
+    );
+    return { people, entries };
+  }
+
   function touch() {
     persist();
   }
@@ -379,12 +397,19 @@
       return null;
     }),
 
-    // Removes the built-in sample people (and anything scheduled for them)
-    // while keeping whatever the person has added themselves.
+    // What clearSampleData() would remove, so the page can say so first.
+    sampleDataSummary: op(() => {
+      const plan = sampleRemovalPlan();
+      return { people: plan.people.size, entries: plan.entries.size };
+    }),
+
+    // Removes the untouched sample people, everything scheduled for them, and
+    // the built-in sample entries. A sample person who has been renamed is
+    // treated as real and kept, along with entries added for them.
     clearSampleData: op(() => {
-      const isSample = (id) => String(id).startsWith('sample-');
-      doc.people = doc.people.filter((person) => !isSample(person.id));
-      doc.entries = doc.entries.filter((entry) => !isSample(entry.id) && !isSample(entry.user_id));
+      const plan = sampleRemovalPlan();
+      doc.people = doc.people.filter((person) => !plan.people.has(person.id));
+      doc.entries = doc.entries.filter((entry) => !plan.entries.has(entry.id));
       doc.sample = false;
       persist();
       return null;

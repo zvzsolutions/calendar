@@ -163,6 +163,19 @@
       }
     }
 
+    // Field edits save in place. Redrawing here would replace the button the
+    // person is in the middle of clicking, so the page behind catches up when
+    // the dialog closes or on the next add / delete.
+    async function saveField(work) {
+      try {
+        await work();
+        await actions.refreshData();
+      } catch (err) {
+        await actions.reload();
+        actions.showToast(err.message || 'That change could not be saved.', 'error');
+      }
+    }
+
     root.querySelectorAll('[data-manage-close]').forEach((button) => {
       button.addEventListener('click', () => actions.closeManage());
     });
@@ -193,7 +206,7 @@
     root.querySelectorAll('.manage-person').forEach((row) => {
       const id = row.dataset.personId;
       row.querySelectorAll('[data-person-field]').forEach((input) => {
-        input.addEventListener('change', () => run(() => (
+        input.addEventListener('change', () => saveField(() => (
           window.CalendarApi.savePerson({ id, [input.dataset.personField]: input.value })
         )));
       });
@@ -223,7 +236,7 @@
     // Categories
     root.querySelectorAll('.manage-status').forEach((row) => {
       const id = row.dataset.statusId;
-      const save = () => run(() => window.CalendarApi.saveStatus({
+      const save = () => saveField(() => window.CalendarApi.saveStatus({
         id,
         label: row.querySelector('[data-status-field="label"]').value,
         color: row.querySelector('[data-status-field="color"]').value,
@@ -250,7 +263,7 @@
 
     // Appearance
     root.querySelectorAll('[data-setting]').forEach((input) => {
-      input.addEventListener('change', () => run(() => (
+      input.addEventListener('change', () => saveField(() => (
         window.CalendarApi.saveSettings({ [input.dataset.setting]: input.value })
       )));
     });

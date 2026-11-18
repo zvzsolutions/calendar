@@ -44,7 +44,10 @@ loads a backup file, replacing what is there — this is also how you move the
 calendar to another browser.
 
 The first time it opens, the calendar shows sample people and entries. Use
-**Clear sample data** to remove them; anything you added yourself stays.
+**Clear sample data** to remove them. It tells you how many people and entries
+will go first. A sample person you have renamed is kept, along with the entries
+you added for them; entries added for a sample person you did not rename are
+removed with that person.
 
 ## Making it shared later
 
@@ -61,7 +64,7 @@ alone:
 | `getEntries({ start_date, end_date })`, `createEntry(entry)`, `updateEntry(id, entry)`, `deleteEntry(id)` | Entries |
 | `getSettings()`, `saveSettings(partial)` | Title and accent color |
 | `exportData()`, `importData(json)` | Backup and restore |
-| `clearAll()`, `clearSampleData()`, `isSampleData()`, `storageOk()` | Housekeeping |
+| `clearAll()`, `sampleDataSummary()`, `clearSampleData()`, `isSampleData()`, `storageOk()` | Housekeeping |
 
 ## Files
 

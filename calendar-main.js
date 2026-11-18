@@ -35,6 +35,8 @@
     const settings = state.settings || {};
     document.title = settings.title || 'Calendar';
     if (settings.accent) document.documentElement.style.setProperty('--accent', settings.accent);
+    const heading = app.querySelector('.brand-title');
+    if (heading) heading.textContent = settings.title || 'Calendar';
   }
 
   // People, categories and settings all live in the store; re-read them
@@ -163,14 +165,24 @@
       if (next && next.focus) next.focus({ preventScroll: true });
     },
     async clearSampleData() {
-      if (window.confirm && !window.confirm('Remove the sample people and their entries? Anything you added yourself stays.')) return;
       try {
+        const summary = await CalendarApi.sampleDataSummary();
+        const people = `${summary.people} sample ${summary.people === 1 ? 'person' : 'people'}`;
+        const entries = `${summary.entries} ${summary.entries === 1 ? 'entry' : 'entries'}`;
+        const question = `Remove ${people} and ${entries} (the sample entries, plus anything scheduled for those people)? People you renamed are kept.`;
+        if (window.confirm && !window.confirm(question)) return;
         await CalendarApi.clearSampleData();
         await actions.reload();
         showToast('Sample data cleared.', 'success');
       } catch (err) {
         showToast(err.message || 'Unable to clear sample data.', 'error');
       }
+    },
+    // Re-reads everything from the store without redrawing the page, for
+    // callers that must keep the current DOM (and the person's cursor) alive.
+    async refreshData() {
+      await loadMeta();
+      await loadEntries();
     },
     openDayDrawer(date, focusEntryId) {
       const iso = typeof date === 'string' ? date.slice(0, 10) : CalendarState.isoDate(date || state.selectedDate || state.viewDate || new Date());
@@ -267,6 +279,8 @@
         showToast('Entry changed. Please reopen and try again.', 'error');
         return;
       }
+      // Keep what was typed, so a rejected save does not wipe the form.
+      state.editor = { ...current, ...schedulePayloadBody(payload), id: current.id };
       state.editorSaving = true;
       CalendarRender.render(app, state, actions);
       try {

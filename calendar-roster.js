@@ -470,11 +470,8 @@
       return (state.entries || []).find((entry) => String(entry.id) === String(entryId));
     }
 
-    function activateEntry(entryId, date) {
+    function activateEntry(entryId) {
       const entry = findEntry(entryId);
-      const entryDate = date || (entry ? entryStartIso(entry) : '');
-      if (entryDate) selectDate(entryDate);
-      if (entry) selectPerson(entryUserId(entry));
       if (entry && actions.openEditor) actions.openEditor(entry);
     }
 
