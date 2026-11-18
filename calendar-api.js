@@ -1,0 +1,386 @@
+/*
+ * Storage layer. This is the ONLY file that knows where calendar data lives.
+ *
+ * Today everything is one JSON document in this browser's localStorage.
+ * To share a calendar between devices, reimplement the methods on
+ * window.CalendarApi against a server and leave every other file alone.
+ * Every method returns a Promise so that swap needs no caller changes.
+ */
+(function() {
+  'use strict';
+
+  const KEY = 'calendar.v1';
+  const UNREADABLE_KEY = `${KEY}.unreadable`;
+  const VERSION = 1;
+  const ME = { id: 'local', name: 'Local', role: 'admin' };
+  const DEFAULT_SETTINGS = { title: 'Calendar', accent: '#2f6fb0' };
+  const DEFAULT_STATUSES = [
+    { id: 'away', label: 'Away', color: '#c0492f' },
+    { id: 'appointment', label: 'Appointment', color: '#2f6fb0' },
+    { id: 'travel', label: 'Travel', color: '#8254c9' },
+    { id: 'event', label: 'Event', color: '#1f8a6d' },
+    { id: 'busy', label: 'Busy', color: '#d08a2c' },
+    { id: 'birthday', label: 'Birthday', color: '#d4578f' },
+    { id: 'other', label: 'Other', color: '#6b7280' },
+  ];
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const TIME_RE = /^\d{2}:\d{2}$/;
+  const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+  let idCounter = 0;
+  let writesOk = true;
+  let doc = null;
+
+  function newId() {
+    try {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    } catch (err) { /* fall through */ }
+    idCounter += 1;
+    return `id-${Date.now().toString(36)}-${idCounter}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function text(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
+  }
+
+  function pad(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function isoDate(date) {
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  function isRealDate(value) {
+    if (!DATE_RE.test(value)) return false;
+    const [y, m, d] = value.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+  }
+
+  // ---- seed ---------------------------------------------------------------
+
+  function seedDocument() {
+    const today = new Date();
+    const day = (offset) => isoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset));
+    const people = [
+      { id: 'sample-alex', name: 'Alex Sample', role: 'Sample person', email: '' },
+      { id: 'sample-jordan', name: 'Jordan Sample', role: 'Sample person', email: '' },
+      { id: 'sample-riley', name: 'Riley Sample', role: 'Sample person', email: '' },
+      { id: 'sample-sam', name: 'Sam Sample', role: 'Sample person', email: '' },
+    ];
+    const entry = (n, user, status, from, to, note, start, end) => ({
+      id: `sample-entry-${n}`,
+      user_id: user,
+      status,
+      start_date: day(from),
+      end_date: day(to),
+      start_time: start || '',
+      end_time: end || '',
+      note,
+      event_color: null,
+    });
+    return {
+      version: VERSION,
+      sample: true,
+      settings: { ...DEFAULT_SETTINGS },
+      people,
+      statuses: clone(DEFAULT_STATUSES),
+      entries: [
+        entry(1, 'sample-alex', 'away', -2, 1, 'Out of town'),
+        entry(2, 'sample-jordan', 'appointment', 0, 0, 'Dentist', '09:00', '10:00'),
+        entry(3, 'sample-riley', 'travel', 2, 6, 'Trip to the coast'),
+        entry(4, 'sample-sam', 'event', 1, 1, 'Family dinner', '18:00', '20:00'),
+        entry(5, 'sample-alex', 'busy', 4, 4, 'Car service', '13:00', '15:00'),
+        entry(6, 'sample-jordan', 'birthday', 7, 7, 'Birthday'),
+        entry(7, 'sample-riley', 'other', -5, -5, 'Delivery window'),
+        entry(8, 'sample-sam', 'away', 8, 10, 'Long weekend'),
+      ],
+    };
+  }
+
+  // ---- validation ---------------------------------------------------------
+
+  function fail(message) {
+    throw new Error(message);
+  }
+
+  function cleanPerson(input, fallbackId) {
+    const name = text(input && input.name);
+    if (!name) fail('A person needs a name.');
+    return {
+      id: text(input.id) || fallbackId || newId(),
+      name,
+      role: text(input.role),
+      email: text(input.email),
+    };
+  }
+
+  function cleanStatus(input, fallbackId) {
+    const label = text(input && input.label);
+    if (!label) fail('A category needs a name.');
+    const color = text(input.color);
+    if (!COLOR_RE.test(color)) fail('Pick a valid color for the category.');
+    return { id: text(input.id) || fallbackId || newId(), label, color: color.toLowerCase() };
+  }
+
+  function cleanTime(value) {
+    const time = text(value).slice(0, 5);
+    return TIME_RE.test(time) ? time : '';
+  }
+
+  function cleanEntry(input, source, id) {
+    const payload = input || {};
+    const userId = text(payload.user_id);
+    if (!userId || !source.people.some((p) => p.id === userId)) fail('Choose a person for this entry.');
+    const status = text(payload.status);
+    if (!status || !source.statuses.some((s) => s.id === status)) fail('Choose a category for this entry.');
+    const start = text(payload.start_date).slice(0, 10);
+    const end = text(payload.end_date).slice(0, 10) || start;
+    if (!isRealDate(start)) fail('Enter a valid start date.');
+    if (!isRealDate(end)) fail('Enter a valid end date.');
+    if (end < start) fail('The end date cannot be before the start date.');
+    const color = text(payload.event_color);
+    return {
+      id,
+      user_id: userId,
+      status,
+      start_date: start,
+      end_date: end,
+      start_time: cleanTime(payload.start_time),
+      end_time: cleanTime(payload.end_time),
+      note: text(payload.note),
+      event_color: COLOR_RE.test(color) ? color.toLowerCase() : null,
+    };
+  }
+
+  // Turns anything parsed from storage or a backup file into a trustworthy
+  // document, or throws. Entries that point at a missing person or category,
+  // or that fail validation, are dropped rather than failing the whole load.
+  function normalizeDocument(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Not a calendar document.');
+    if (raw.version !== VERSION) fail('Unsupported calendar version.');
+    if (!Array.isArray(raw.people) || !Array.isArray(raw.statuses) || !Array.isArray(raw.entries)) {
+      fail('Calendar document is missing its lists.');
+    }
+    const seen = new Set();
+    const unique = (item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    };
+    const safely = (fn) => (item) => {
+      try { return fn(item); } catch (err) { return null; }
+    };
+
+    const people = raw.people.map(safely((p) => cleanPerson(p))).filter(Boolean).filter(unique);
+    seen.clear();
+    const statuses = raw.statuses.map(safely((s) => cleanStatus(s))).filter(Boolean).filter(unique);
+    seen.clear();
+    const partial = { people, statuses };
+    const entries = raw.entries
+      .map(safely((e) => cleanEntry(e, partial, text(e && e.id) || newId())))
+      .filter(Boolean)
+      .filter(unique);
+
+    const settings = { ...DEFAULT_SETTINGS };
+    const rawSettings = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
+    if (text(rawSettings.title)) settings.title = text(rawSettings.title);
+    if (COLOR_RE.test(text(rawSettings.accent))) settings.accent = text(rawSettings.accent).toLowerCase();
+
+    return { version: VERSION, sample: raw.sample === true, settings, people, statuses, entries };
+  }
+
+  // ---- persistence --------------------------------------------------------
+
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(doc));
+      writesOk = true;
+    } catch (err) {
+      writesOk = false;
+    }
+  }
+
+  function loadDocument() {
+    let stored = null;
+    try {
+      stored = localStorage.getItem(KEY);
+    } catch (err) {
+      writesOk = false;
+      return seedDocument();
+    }
+    if (stored === null) {
+      const seeded = seedDocument();
+      doc = seeded;
+      persist();
+      return seeded;
+    }
+    try {
+      return normalizeDocument(JSON.parse(stored));
+    } catch (err) {
+      // Never silently destroy data we could not read: park it, then start fresh.
+      try { localStorage.setItem(UNREADABLE_KEY, stored); } catch (ignored) { writesOk = false; }
+      const seeded = seedDocument();
+      doc = seeded;
+      persist();
+      return seeded;
+    }
+  }
+
+  doc = loadDocument();
+
+  // ---- helpers ------------------------------------------------------------
+
+  function decorate(entry) {
+    const person = doc.people.find((p) => p.id === entry.user_id);
+    return {
+      ...entry,
+      user_name: person ? person.name : 'Unknown',
+      user_role: person ? person.role : '',
+      source: 'manual',
+    };
+  }
+
+  function overlaps(entry, range) {
+    const from = text(range && range.start_date).slice(0, 10) || '0000-00-00';
+    const to = text(range && range.end_date).slice(0, 10) || '9999-99-99';
+    return entry.start_date <= to && entry.end_date >= from;
+  }
+
+  function byName(a, b) {
+    return a.name.localeCompare(b.name);
+  }
+
+  // Wraps a synchronous operation so callers always get a Promise and thrown
+  // validation errors become rejections.
+  function op(fn) {
+    return function(...args) {
+      try {
+        return Promise.resolve(fn(...args));
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    };
+  }
+
+  function touch() {
+    doc.sample = false;
+    persist();
+  }
+
+  // ---- public surface -----------------------------------------------------
+
+  window.CalendarApi = {
+    getMe: op(() => ({ ...ME })),
+
+    getUserDirectory: op(() => clone(doc.people).sort(byName)),
+
+    getEntries: op((range) => doc.entries.filter((entry) => overlaps(entry, range)).map(decorate)),
+
+    createEntry: op((payload) => {
+      const entry = cleanEntry(payload, doc, newId());
+      doc.entries.push(entry);
+      touch();
+      return decorate(entry);
+    }),
+
+    updateEntry: op((id, payload) => {
+      const index = doc.entries.findIndex((entry) => entry.id === String(id));
+      if (index === -1) fail('Entry not found. It may have been deleted.');
+      const entry = cleanEntry({ ...doc.entries[index], ...(payload || {}) }, doc, doc.entries[index].id);
+      doc.entries[index] = entry;
+      touch();
+      return decorate(entry);
+    }),
+
+    deleteEntry: op((id) => {
+      doc.entries = doc.entries.filter((entry) => entry.id !== String(id));
+      touch();
+      return null;
+    }),
+
+    getStatuses: op(() => clone(doc.statuses)),
+
+    saveStatus: op((input) => {
+      const id = text(input && input.id);
+      const index = id ? doc.statuses.findIndex((s) => s.id === id) : -1;
+      const status = cleanStatus(input, index === -1 ? newId() : id);
+      if (index === -1) doc.statuses.push(status);
+      else doc.statuses[index] = status;
+      touch();
+      return clone(status);
+    }),
+
+    deleteStatus: op((id) => {
+      const count = doc.entries.filter((entry) => entry.status === String(id)).length;
+      if (count > 0) fail(`Status is used by ${count} ${count === 1 ? 'entry' : 'entries'}. Change or delete those first.`);
+      doc.statuses = doc.statuses.filter((s) => s.id !== String(id));
+      touch();
+      return null;
+    }),
+
+    savePerson: op((input) => {
+      const id = text(input && input.id);
+      const index = id ? doc.people.findIndex((p) => p.id === id) : -1;
+      const person = cleanPerson(index === -1 ? input : { ...doc.people[index], ...input }, index === -1 ? newId() : id);
+      if (index === -1) doc.people.push(person);
+      else doc.people[index] = person;
+      touch();
+      return clone(person);
+    }),
+
+    deletePerson: op((id) => {
+      doc.people = doc.people.filter((p) => p.id !== String(id));
+      doc.entries = doc.entries.filter((entry) => entry.user_id !== String(id));
+      touch();
+      return null;
+    }),
+
+    getSettings: op(() => ({ ...doc.settings })),
+
+    saveSettings: op((partial) => {
+      const next = { ...doc.settings };
+      if (partial && partial.title !== undefined) {
+        next.title = text(partial.title) || DEFAULT_SETTINGS.title;
+      }
+      if (partial && partial.accent !== undefined) {
+        if (!COLOR_RE.test(text(partial.accent))) fail('Pick a valid accent color.');
+        next.accent = text(partial.accent).toLowerCase();
+      }
+      doc.settings = next;
+      persist();
+      return { ...next };
+    }),
+
+    exportData: op(() => JSON.stringify(doc, null, 2)),
+
+    importData: op((json) => {
+      let next;
+      try {
+        next = normalizeDocument(JSON.parse(String(json)));
+      } catch (err) {
+        fail('That file is not a calendar backup.');
+      }
+      doc = next;
+      persist();
+      return null;
+    }),
+
+    clearAll: op(() => {
+      doc.people = [];
+      doc.entries = [];
+      touch();
+      return null;
+    }),
+
+    isSampleData: op(() => doc.sample === true),
+
+    storageOk: op(() => writesOk),
+  };
+})();
