@@ -287,6 +287,87 @@
     return { people, entries };
   }
 
+  // ---- calendar file (.ics) export -----------------------------------------
+
+  function icsText(value) {
+    return String(value == null ? '' : value)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n');
+  }
+
+  // Calendar files limit lines to 75 characters; longer ones continue on the
+  // next line after a leading space.
+  function icsFold(line) {
+    const parts = [];
+    let rest = line;
+    let limit = 75;
+    while (rest.length > limit) {
+      parts.push(rest.slice(0, limit));
+      rest = rest.slice(limit);
+      limit = 74;
+    }
+    parts.push(rest);
+    return parts.join('\r\n ');
+  }
+
+  function icsDate(iso) {
+    return iso.replace(/-/g, '');
+  }
+
+  function icsDateTime(date) {
+    return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`;
+  }
+
+  function localDate(iso, time) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const [hh, mm] = time ? time.split(':').map(Number) : [0, 0];
+    return new Date(y, m - 1, d, hh, mm);
+  }
+
+  function icsEvent(entry, stamp) {
+    const person = doc.people.find((p) => p.id === entry.user_id);
+    const status = doc.statuses.find((s) => s.id === entry.status);
+    const category = status ? status.label : 'Entry';
+    const title = `${entry.note || category} (${person ? person.name : 'Unknown'})`;
+    const lines = ['BEGIN:VEVENT', `UID:${entry.id}@calendar`, `DTSTAMP:${stamp}`];
+
+    if (entry.start_time) {
+      const start = localDate(entry.start_date, entry.start_time);
+      let end = entry.end_time ? localDate(entry.end_date, entry.end_time) : new Date(start.getTime() + 60 * 60 * 1000);
+      if (end <= start) end = new Date(start.getTime() + 60 * 60 * 1000);
+      lines.push(`DTSTART:${icsDateTime(start)}`, `DTEND:${icsDateTime(end)}`);
+    } else {
+      const last = localDate(entry.end_date);
+      const dayAfter = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+      lines.push(`DTSTART;VALUE=DATE:${icsDate(entry.start_date)}`, `DTEND;VALUE=DATE:${icsDate(isoDate(dayAfter))}`);
+    }
+
+    lines.push(`SUMMARY:${icsText(title)}`, `CATEGORIES:${icsText(category)}`);
+    if (entry.note) lines.push(`DESCRIPTION:${icsText(`${category}: ${entry.note}`)}`);
+    lines.push('END:VEVENT');
+    return lines;
+  }
+
+  function buildIcs() {
+    const now = new Date();
+    const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Calendar//Standalone Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      `X-WR-CALNAME:${icsText(doc.settings.title)}`,
+    ];
+    doc.entries
+      .slice()
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.start_time.localeCompare(b.start_time))
+      .forEach((entry) => lines.push(...icsEvent(entry, stamp)));
+    lines.push('END:VCALENDAR');
+    return lines.map(icsFold).join('\r\n') + '\r\n';
+  }
+
   function touch() {
     persist();
   }
@@ -388,6 +469,10 @@
       persist();
       return null;
     }),
+
+    // Every entry as a standard calendar file that Google Calendar, Outlook
+    // and Apple Calendar can import. One-way: a snapshot, not a live link.
+    exportIcs: op(() => buildIcs()),
 
     clearAll: op(() => {
       doc.people = [];

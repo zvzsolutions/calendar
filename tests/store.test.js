@@ -329,3 +329,80 @@ test('sampleDataSummary counts exactly what clearSampleData will remove', async 
   assert.equal((await api.getUserDirectory()).length, 1);
   assert.equal((await api.getEntries(EVERYTHING)).length, before - summary.entries);
 });
+
+// ---- calendar file (.ics) export ------------------------------------------
+
+async function icsFor(entries) {
+  const { api } = await emptyApi();
+  const person = await api.savePerson({ name: 'Pat Example' });
+  const statuses = await api.getStatuses();
+  const appointment = statuses.find((s) => s.label === 'Appointment');
+  for (const entry of entries) {
+    await api.createEntry({ user_id: person.id, status: appointment.id, ...entry });
+  }
+  return api.exportIcs();
+}
+
+function unfold(ics) {
+  return ics.replace(/\r\n[ \t]/g, '').split('\r\n');
+}
+
+test('exportIcs wraps one event per entry in a calendar', async () => {
+  const ics = await icsFor([
+    { start_date: '2026-03-10', end_date: '2026-03-10', note: 'One' },
+    { start_date: '2026-03-11', end_date: '2026-03-11', note: 'Two' },
+  ]);
+  const lines = unfold(ics);
+  assert.equal(lines[0], 'BEGIN:VCALENDAR');
+  assert.ok(lines.includes('VERSION:2.0'));
+  assert.ok(lines.some((line) => line.startsWith('PRODID:')));
+  assert.equal(lines.filter((line) => line === 'BEGIN:VEVENT').length, 2);
+  assert.equal(lines.filter((line) => line === 'END:VEVENT').length, 2);
+  assert.equal(lines.filter(Boolean).pop(), 'END:VCALENDAR');
+  assert.equal(lines.filter((line) => line.startsWith('UID:')).length, 2);
+  assert.equal(new Set(lines.filter((line) => line.startsWith('UID:'))).size, 2);
+  assert.ok(lines.some((line) => /^DTSTAMP:\d{8}T\d{6}Z$/.test(line)));
+});
+
+test('exportIcs writes all-day entries with an exclusive end date', async () => {
+  const lines = unfold(await icsFor([{ start_date: '2026-02-27', end_date: '2026-02-28', note: 'Trip' }]));
+  assert.ok(lines.includes('DTSTART;VALUE=DATE:20260227'));
+  // Two days, ending the 28th: calendar apps expect the day AFTER the last day.
+  assert.ok(lines.includes('DTEND;VALUE=DATE:20260301'));
+});
+
+test('exportIcs writes timed entries as local times', async () => {
+  const lines = unfold(await icsFor([
+    { start_date: '2026-03-10', end_date: '2026-03-10', start_time: '09:00', end_time: '10:30', note: 'Dentist' },
+  ]));
+  assert.ok(lines.includes('DTSTART:20260310T090000'));
+  assert.ok(lines.includes('DTEND:20260310T103000'));
+});
+
+test('exportIcs gives a timed entry with no end time one hour', async () => {
+  const lines = unfold(await icsFor([
+    { start_date: '2026-03-10', end_date: '2026-03-10', start_time: '23:30', note: 'Late' },
+  ]));
+  assert.ok(lines.includes('DTSTART:20260310T233000'));
+  assert.ok(lines.includes('DTEND:20260311T003000'));
+});
+
+test('exportIcs names the person and category and escapes special characters', async () => {
+  const lines = unfold(await icsFor([
+    { start_date: '2026-03-10', end_date: '2026-03-10', note: 'Lunch, then; errands\\done' },
+  ]));
+  assert.ok(lines.includes('SUMMARY:Lunch\\, then\; errands\\\\done (Pat Example)'));
+  assert.ok(lines.includes('CATEGORIES:Appointment'));
+});
+
+test('exportIcs falls back to the category name when there is no note', async () => {
+  const lines = unfold(await icsFor([{ start_date: '2026-03-10', end_date: '2026-03-10' }]));
+  assert.ok(lines.includes('SUMMARY:Appointment (Pat Example)'));
+});
+
+test('exportIcs uses CRLF line endings and folds long lines', async () => {
+  const ics = await icsFor([{ start_date: '2026-03-10', end_date: '2026-03-10', note: 'x'.repeat(300) }]);
+  assert.equal(ics.replace(/\r\n/g, '').includes('\n'), false);
+  for (const line of ics.split('\r\n')) assert.ok(line.length <= 75, `line too long: ${line.length}`);
+  assert.ok(unfold(ics).some((line) => line.startsWith('SUMMARY:') && line.includes('x'.repeat(300))));
+});

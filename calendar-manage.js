@@ -84,10 +84,11 @@
   function renderBackup(state) {
     return `
       <section class="manage-section" aria-labelledby="manageBackupTitle">
-        <h3 id="manageBackupTitle">Backup</h3>
-        <p class="manage-help">This calendar is saved in this browser on this device only. Download a backup now and then, and use it to move the calendar to another browser.</p>
+        <h3 id="manageBackupTitle">Backup and export</h3>
+        <p class="manage-help">This calendar is saved in this browser on this device only. Download a backup now and then, and use it to move the calendar to another browser. Export makes a calendar file (.ics) you can import into Google Calendar, Outlook or Apple Calendar.</p>
         <div class="manage-row manage-backup">
           <button class="nav-btn" type="button" data-backup-download>Download backup</button>
+          <button class="nav-btn" type="button" data-ics-download>Export for Google / Outlook / Apple</button>
           <button class="nav-btn" type="button" data-backup-restore>Restore from backup</button>
           <input type="file" accept="application/json,.json" data-backup-file hidden>
           ${state.sampleData ? '<button class="nav-btn" type="button" data-clear-sample>Clear sample data</button>' : ''}
@@ -129,8 +130,8 @@
     ));
   }
 
-  function downloadText(filename, text) {
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  function downloadText(filename, text, type) {
+    const url = URL.createObjectURL(new Blob([text], { type: type || 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -277,6 +278,18 @@
           downloadText(`calendar-backup-${window.CalendarState.isoDate(new Date())}.json`, json);
         } catch (err) {
           actions.showToast(err.message || 'Could not create the backup.', 'error');
+        }
+      });
+    }
+    const icsDownload = root.querySelector('[data-ics-download]');
+    if (icsDownload) {
+      icsDownload.addEventListener('click', async () => {
+        try {
+          const ics = await window.CalendarApi.exportIcs();
+          downloadText(`calendar-${window.CalendarState.isoDate(new Date())}.ics`, ics, 'text/calendar');
+          actions.showToast('Calendar file downloaded. Import it into your calendar app.', 'success');
+        } catch (err) {
+          actions.showToast(err.message || 'Could not create the calendar file.', 'error');
         }
       });
     }
