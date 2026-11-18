@@ -1,17 +1,17 @@
 :root {
-  --bg: #eceae3;
+  --bg: #eef0f3;
   --surface: #ffffff;
-  --surface-2: #f4f2ec;
-  --surface-3: #ebe8e0;
-  --line: #dcd8cd;
-  --line-soft: #e8e5db;
-  --ink: #1c2b2b;
-  --ink-2: #46524e;
-  --ink-dim: #79827c;
-  --brand: #104547;
-  --brand-2: #16615f;
-  --accent: #8cc63e;
-  --accent-ink: #104547;
+  --surface-2: #f5f6f8;
+  --surface-3: #eceef2;
+  --line: #d9dde3;
+  --line-soft: #e6e9ee;
+  --ink: #1d2530;
+  --ink-2: #465160;
+  --ink-dim: #677282;
+  --brand: #1f2a3a;
+  --brand-2: #2c3b52;
+  --accent: #2f6fb0;
+  --accent-ink: #1f2a3a;
   --focus: #2f6fb0;
   --danger: #b34332;
   --row-h: 52px;
@@ -85,8 +85,8 @@ input {
   width: 42px;
   height: 42px;
   border-radius: var(--radius);
-  background: linear-gradient(135deg, var(--accent), #d9efba);
-  border: 1px solid rgba(16, 69, 71, .12);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 35%, #fff));
+  border: 1px solid rgba(31, 42, 58, .12);
   display: none;
 }
 
@@ -160,13 +160,13 @@ input {
 }
 
 .view-tab.is-active {
-  border-color: rgba(16, 69, 71, .28);
+  border-color: rgba(31, 42, 58, .28);
   background: var(--accent-ink);
   color: #fff;
 }
 
 .filter-chip.is-active {
-  border-color: rgba(16, 69, 71, .28);
+  border-color: rgba(31, 42, 58, .28);
   background: var(--accent-ink);
   color: #fff;
 }
@@ -188,7 +188,7 @@ input {
 .filter-chip:hover,
 .primary-btn:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .nav-btn:disabled,
@@ -214,7 +214,7 @@ input {
   background: var(--surface);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  box-shadow: 0 10px 26px rgba(16, 69, 71, .05);
+  box-shadow: 0 10px 26px rgba(31, 42, 58, .05);
 }
 
 .summary-label {
@@ -272,7 +272,7 @@ input {
 
 .schedule-search:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .roster-scroll {
@@ -449,7 +449,7 @@ input {
 
 .calendar-weekdays {
   border-bottom: 1px solid var(--line-soft);
-  background: #fbfdf8;
+  background: #fbfcfd;
 }
 
 .weekday-label {
@@ -479,19 +479,19 @@ input {
 
 .calendar-day.is-blank {
   cursor: default;
-  background: #f7f9f5;
+  background: #f7f8fa;
 }
 
 .calendar-day.is-weekend {
-  background: #f7f9f5;
+  background: #f7f8fa;
 }
 
 .calendar-day.is-today {
-  box-shadow: inset 0 0 0 2px rgba(140, 198, 62, .58);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 58%, transparent);
 }
 
 .calendar-day.is-selected {
-  background: rgba(140, 198, 62, .12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .calendar-day-head {
@@ -582,12 +582,12 @@ input {
 }
 
 .day-head.is-today {
-  background: rgba(140, 198, 62, .22);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .day-head.is-weekend,
 .day-cell.is-weekend {
-  background: #f4f6f2;
+  background: #f4f5f7;
 }
 
 .day-dow {
@@ -616,7 +616,7 @@ input {
 }
 
 .person-cell:hover {
-  background: #fbfdf8;
+  background: #fbfcfd;
 }
 
 .person-cell.is-selected {
@@ -626,7 +626,7 @@ input {
 .person-cell:focus-visible,
 .day-select-btn:focus-visible,
 .entry-bar:focus-visible {
-  outline: 3px solid rgba(140, 198, 62, .72);
+  outline: 3px solid color-mix(in srgb, var(--accent) 72%, transparent);
   outline-offset: -3px;
 }
 
@@ -675,7 +675,7 @@ input {
 }
 
 .day-cell.is-today {
-  background: rgba(140, 198, 62, .12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .day-select-btn {
@@ -694,7 +694,7 @@ input {
 
 .day-select-btn:hover {
   border-color: var(--accent);
-  background: rgba(140, 198, 62, .14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent-ink);
 }
 
@@ -831,8 +831,8 @@ input {
 }
 
 .mini-day.has-entries {
-  border-color: rgba(16, 69, 71, .16);
-  background: rgba(140, 198, 62, .16);
+  border-color: rgba(31, 42, 58, .16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent-ink);
 }
 
@@ -848,8 +848,8 @@ input {
 
 .person-card:hover,
 .person-card.is-selected {
-  border-color: rgba(16, 69, 71, .28);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .12);
+  border-color: rgba(31, 42, 58, .28);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .person-card-head {
@@ -977,9 +977,9 @@ input {
 
 .panel-entry:hover,
 .panel-entry.is-focused {
-  border-color: rgba(16, 69, 71, .28);
-  background: #fbfdf8;
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .12);
+  border-color: rgba(31, 42, 58, .28);
+  background: #fbfcfd;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .panel-entry-copy {
@@ -1064,13 +1064,13 @@ button.detail-entry {
 }
 
 button.detail-entry:hover {
-  border-color: rgba(16, 69, 71, .28);
-  background: #fbfdf8;
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .12);
+  border-color: rgba(31, 42, 58, .28);
+  background: #fbfcfd;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .detail-entry:focus-visible {
-  outline: 3px solid rgba(140, 198, 62, .72);
+  outline: 3px solid color-mix(in srgb, var(--accent) 72%, transparent);
   outline-offset: 2px;
 }
 
@@ -1122,7 +1122,7 @@ button.detail-entry:hover {
 }
 
 .detail-entry.is-readonly .detail-note {
-  color: #6a7672;
+  color: #677282;
 }
 
 .empty-detail {
@@ -1174,7 +1174,7 @@ button.detail-entry:hover {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: 0 24px 70px rgba(16, 69, 71, .22);
+  box-shadow: 0 24px 70px rgba(31, 42, 58, .22);
 }
 
 .schedule-editor form {
@@ -1224,7 +1224,7 @@ button.detail-entry:hover {
 
 .icon-btn:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .editor-grid {
@@ -1270,7 +1270,7 @@ button.detail-entry:hover {
 .schedule-editor select:focus,
 .schedule-editor textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .editor-note {
@@ -1555,7 +1555,7 @@ body.calendar-page {
 .primary-btn:hover {
   border-color: var(--brand-2);
   background: var(--brand-2);
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .schedule-toolbar > .view-tabs {
@@ -2014,7 +2014,7 @@ body.calendar-page {
 .person-card:hover,
 .person-card.is-selected {
   border-color: color-mix(in srgb, var(--brand) 35%, var(--line));
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .13);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .person-card-head strong {
@@ -2049,7 +2049,7 @@ body.calendar-page {
 button.detail-entry:hover {
   border-color: color-mix(in srgb, var(--brand) 28%, var(--line));
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(140, 198, 62, .12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .editor-backdrop {
